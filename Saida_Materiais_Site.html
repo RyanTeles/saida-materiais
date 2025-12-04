@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Saída de Materiais — Controle</title>
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#0ea5a4;--glass: rgba(255,255,255,0.04)}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{margin:0;background:linear-gradient(180deg,#071023 0%, #081426 60%);color:#e6eef6;min-height:100vh}
+    .wrap{max-width:1100px;margin:28px auto;padding:20px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:16px;box-shadow:0 6px 20px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+    .controls{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+    .controls select,.controls input{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 10px;border-radius:8px;color:inherit}
+    .btn{background:var(--accent);color:#012;border:none;padding:9px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+    th,td{padding:10px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.03)}
+    th{font-size:12px;color:var(--muted);font-weight:600}
+    tbody tr:hover{background:rgba(255,255,255,0.01)}
+    .right{display:flex;gap:8px;align-items:center}
+    .small{font-size:12px;color:var(--muted)}
+    .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.6);opacity:0;pointer-events:none;transition:all .18s}
+    .modal.open{opacity:1;pointer-events:auto}
+    .modal .panel{width:720px;max-width:95%;background:#071428;padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+    label{display:block;font-size:12px;color:var(--muted);margin-top:10px}
+    input[type=text],input[type=time],input[type=date],select{width:100%;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit}
+    .row{display:flex;gap:10px}
+    .col{flex:1}
+    footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+    .empty{padding:28px;text-align:center;color:var(--muted)}
+    @media(max-width:720px){.row{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Saída de Materiais — Controle</h1>
+        <p class="lead">Visualize, filtre e exporte saídas de materiais. Horário do expediente: <strong>07:00 — 16:45</strong></p>
+      </div>
+      <div class="right">
+        <button class="btn" id="btnAdd">+ Novo Registro</button>
+        <button class="btn ghost" id="btnExportCSV">Exportar CSV</button>
+        <button class="btn ghost" id="btnExportXLSX">Exportar XLSX</button>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="controls">
+        <select id="filterMonth">
+          <option value="all">Todos os meses</option>
+        </select>
+        <input id="search" placeholder="Pesquisar por funcionário, material..." />
+        <select id="filterName"><option value="all">Todos os funcionários</option></select>
+        <div style="margin-left:auto" class="small">Registros: <span id="count">0</span></div>
+      </div>
+
+      <div id="tableWrap" class="card" style="padding:0;overflow:auto;max-height:520px">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Horário</th>
+              <th>Funcionário</th>
+              <th>Material</th>
+              <th>Quantidade</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="empty" class="empty" style="display:none">Nenhum registro encontrado.</div>
+      </div>
+
+      <footer>Feito para gerenciamento rápido — personalize conforme precisar.</footer>
+    </section>
+
+  </div>
+
+  <!-- Modal: Add Entry -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="panel">
+      <h3>Novo registro</h3>
+      <form id="form">
+        <div class="row">
+          <div class="col">
+            <label>Data</label>
+            <input type="date" id="fDate" required />
+          </div>
+          <div class="col">
+            <label>Horário</label>
+            <input type="time" id="fTime" required />
+          </div>
+        </div>
+        <label>Funcionário</label>
+        <input type="text" id="fName" placeholder="Nome do funcionário" required />
+        <label>Material</label>
+        <input type="text" id="fMaterial" placeholder="Ex: Cimento CP-II" required />
+        <label>Quantidade</label>
+        <input type="text" id="fQty" placeholder="Ex: 02 sacos" required />
+        <label>Observação (opcional)</label>
+        <input type="text" id="fObs" placeholder="Ex: Uso imediato" />
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+          <button type="button" class="btn ghost" id="btnCancel">Cancelar</button>
+          <button class="btn" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SheetJS for XLSX export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+    // sample data (same dataset used para gerar o Excel)
+    const data = [
+      {date:'2025-09-04',time:'07:18',name:'Mauro',material:'Cimento CP-II',qty:'02 sacos',obs:''},
+      {date:'2025-09-04',time:'07:46',name:'F.Welkson',material:'Areia Média',qty:'03 sacos',obs:''},
+      {date:'2025-09-04',time:'08:33',name:'Patrícia',material:'Pregos 17x27',qty:'01 caixa',obs:''},
+      {date:'2025-09-04',time:'09:12',name:'José Jocélio (Guincho)',material:'Argamassa AC-II',qty:'04 sacos',obs:''},
+      {date:'2025-09-04',time:'10:01',name:'Ryan',material:'Disco de corte 4.1/2',qty:'02 un',obs:''},
+      {date:'2025-09-04',time:'11:44',name:'Luciana',material:'Tinta branca 18L',qty:'01 galão',obs:''},
+      {date:'2025-09-04',time:'14:17',name:'Cosme',material:'Fio 2,5mm',qty:'15 m',obs:''},
+      {date:'2025-09-04',time:'16:22',name:'Alice',material:'Parafusos 5mm',qty:'01 caixa',obs:''},
+      {date:'2025-09-13',time:'07:09',name:'Arimatéia',material:'Tubo PVC 50mm',qty:'02 barras',obs:''},
+      {date:'2025-09-13',time:'07:38',name:'José Martins',material:'Tela soldada Q-92',qty:'01 rolo',obs:''},
+      {date:'2025-09-13',time:'09:16',name:'Fábio Gentil',material:'Eletrodos 2,5mm',qty:'01 caixa',obs:''},
+      {date:'2025-09-13',time:'10:33',name:'Ryan',material:'Luvas de vaqueta',qty:'01 par',obs:''},
+      {date:'2025-09-13',time:'12:57',name:'Patrícia',material:'Selador acrílico',qty:'01 galão',obs:''},
+      {date:'2025-09-13',time:'14:28',name:'Mauro',material:'Colher de pedreiro',qty:'01 un',obs:''},
+      {date:'2025-09-13',time:'15:41',name:'Cosme',material:'Buchas nº 8',qty:'01 caixa',obs:''},
+      {date:'2025-09-27',time:'07:22',name:'Nelito',material:'Cal hidratada',qty:'02 sacos',obs:''},
+      {date:'2025-09-27',time:'07:55',name:'Mauro',material:'Blocos 14x19x39',qty:'18 un',obs:''},
+      {date:'2025-09-27',time:'09:02',name:'Alice',material:'Parafusos 4mm',qty:'01 caixa',obs:''},
+      {date:'2025-09-27',time:'10:47',name:'José Jocélio',material:'Massa pronta',qty:'02 baldes',obs:''},
+      {date:'2025-09-27',time:'13:33',name:'Luciana',material:'Tinta cinza 18L',qty:'01 galão',obs:''},
+      {date:'2025-09-27',time:'15:24',name:'Cosme',material:'Abraçadeiras 100mm',qty:'01 pacote',obs:''},
+      {date:'2025-10-02',time:'07:14',name:'F.Welkson',material:'Areia fina',qty:'02 sacos',obs:''},
+      {date:'2025-10-02',time:'08:01',name:'José Martins',material:'Tela Q-138',qty:'01 rolo',obs:''},
+      {date:'2025-10-02',time:'09:15',name:'Mauro',material:'Bloco estrutural 19x19',qty:'12 un',obs:''},
+      {date:'2025-10-02',time:'10:18',name:'Ryan',material:'Chave philips',qty:'01 un',obs:''},
+      {date:'2025-10-02',time:'13:58',name:'Patrícia',material:'Rolo de pintura',qty:'01 un',obs:''},
+      {date:'2025-10-02',time:'15:49',name:'Arimatéia',material:'Tubo PVC 75mm',qty:'03 barras',obs:''},
+      {date:'2025-10-14',time:'07:05',name:'José Jocélio',material:'Argamassa AC-I',qty:'05 sacos',obs:''},
+      {date:'2025-10-14',time:'08:22',name:'Cosme',material:'Fio 4mm',qty:'20m',obs:''},
+      {date:'2025-10-14',time:'10:44',name:'Luciana',material:'Tinta preta',qty:'01 galão',obs:''},
+      {date:'2025-10-14',time:'12:29',name:'Ryan',material:'Disco diamantado',qty:'01 un',obs:''},
+      {date:'2025-10-14',time:'14:21',name:'Fábio Gentil',material:'Eletrodos 3,25mm',qty:'01 caixa',obs:''},
+      {date:'2025-10-29',time:'07:30',name:'Alice',material:'Buchas nº 6',qty:'01 caixa',obs:''},
+      {date:'2025-10-29',time:'08:56',name:'Mauro',material:'Cimento CP-II',qty:'03 sacos',obs:''},
+      {date:'2025-10-29',time:'10:05',name:'José Martins',material:'Vergalhão 8mm',qty:'06 barras',obs:''},
+      {date:'2025-10-29',time:'12:11',name:'Patrícia',material:'Massa corrida',qty:'01 balde',obs:''},
+      {date:'2025-10-29',time:'15:37',name:'Cosme',material:'Fita isolante',qty:'02 rolos',obs:''},
+      {date:'2025-11-03',time:'07:19',name:'José Jocélio',material:'Cal hidratada',qty:'01 saco',obs:''},
+      {date:'2025-11-03',time:'08:43',name:'Ryan',material:'EPI – Óculos de proteção',qty:'01 un',obs:''},
+      {date:'2025-11-03',time:'10:27',name:'Luciana',material:'Tinta branca',qty:'01 galão',obs:''},
+      {date:'2025-11-03',time:'13:16',name:'Mauro',material:'Carrinho de mão',qty:'01 un',obs:''},
+      {date:'2025-11-03',time:'16:05',name:'Cosme',material:'Fio 1,5mm',qty:'20m',obs:''},
+      {date:'2025-11-14',time:'07:28',name:'Patrícia',material:'Selador',qty:'01 galão',obs:''},
+      {date:'2025-11-14',time:'09:01',name:'Fábio Gentil',material:'Máscara de solda',qty:'01 un',obs:''},
+      {date:'2025-11-14',time:'10:42',name:'Arimatéia',material:'Tubos PVC 40mm',qty:'04 barras',obs:''},
+      {date:'2025-11-14',time:'14:09',name:'Alice',material:'Pincel 2”',qty:'01 un',obs:''},
+      {date:'2025-11-14',time:'15:57',name:'Ryan',material:'Corda 10mm',qty:'05m',obs:''},
+      {date:'2025-11-25',time:'07:11',name:'Mauro',material:'Cimento',qty:'02 sacos',obs:''},
+      {date:'2025-11-25',time:'08:35',name:'José Martins',material:'Tela Q-92',qty:'01 rolo',obs:''},
+      {date:'2025-11-25',time:'10:22',name:'F.Welkson',material:'Pedra brita 01',qty:'01 carrinho',obs:''},
+      {date:'2025-11-25',time:'13:04',name:'Cosme',material:'Disjuntores 20A',qty:'02 un',obs:''},
+      {date:'2025-11-25',time:'16:33',name:'Patrícia',material:'Pano industrial',qty:'10 un',obs:''}
+    ];
+
+    // Utilities
+    function formatDateInput(iso){return iso.split('-').reverse().join('/')}
+    function monthFromIso(iso){const [y,m]=iso.split('-');return `${y}-${m}`}
+
+    // Populate filters
+    const months = Array.from(new Set(data.map(d=>monthFromIso(d.date)))).sort();
+    const filterMonth = document.getElementById('filterMonth');
+    months.forEach(m=>{const opt=document.createElement('option');opt.value=m;opt.textContent=m;filterMonth.appendChild(opt)});
+
+    const names = Array.from(new Set(data.map(d=>d.name))).sort();
+    const filterName = document.getElementById('filterName');
+    names.forEach(n=>{const opt=document.createElement('option');opt.value=n;opt.textContent=n;filterName.appendChild(opt)});
+
+    // Render table
+    const tbody = document.querySelector('#tbl tbody');
+    const empty = document.getElementById('empty');
+    const countEl = document.getElementById('count');
+
+    function render(rows){
+      tbody.innerHTML='';
+      if(rows.length===0){document.getElementById('tbl').style.display='none';empty.style.display='block';countEl.textContent='0';return}
+      document.getElementById('tbl').style.display='table';empty.style.display='none';
+      rows.forEach(r=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${formatDateInput(r.date)}</td><td>${r.time}</td><td>${r.name}</td><td>${r.material}</td><td>${r.qty}</td><td>${r.obs||''}</td>`;
+        tbody.appendChild(tr);
+      });
+      countEl.textContent=rows.length;
+    }
+
+    // initial
+    render(data);
+
+    // filters
+    const search = document.getElementById('search');
+    filterMonth.addEventListener('change',applyFilters);
+    filterName.addEventListener('change',applyFilters);
+    search.addEventListener('input',applyFilters);
+
+    function applyFilters(){
+      const m = filterMonth.value;
+      const n = filterName.value;
+      const q = search.value.trim().toLowerCase();
+      let rows = data.slice();
+      if(m!=='all') rows = rows.filter(r=>monthFromIso(r.date)===m);
+      if(n!=='all') rows = rows.filter(r=>r.name===n);
+      if(q) rows = rows.filter(r=>(r.name+' '+r.material+' '+r.qty+' '+(r.obs||'')).toLowerCase().includes(q));
+      render(rows);
+    }
+
+    // Modal
+    const modal = document.getElementById('modal');
+    const btnAdd = document.getElementById('btnAdd');
+    const btnCancel = document.getElementById('btnCancel');
+    btnAdd.addEventListener('click',()=>{modal.classList.add('open');document.getElementById('fDate').value=new Date().toISOString().slice(0,10);document.getElementById('fTime').value='07:00'});
+    btnCancel.addEventListener('click',()=>modal.classList.remove('open'));
+    document.getElementById('form').addEventListener('submit',e=>{
+      e.preventDefault();
+      const row={
+        date: document.getElementById('fDate').value,
+        time: document.getElementById('fTime').value,
+        name: document.getElementById('fName').value.trim(),
+        material: document.getElementById('fMaterial').value.trim(),
+        qty: document.getElementById('fQty').value.trim(),
+        obs: document.getElementById('fObs').value.trim()
+      };
+      data.push(row);
+      // update filters
+      if(!names.includes(row.name)){names.push(row.name);const opt=document.createElement('option');opt.value=row.name;opt.textContent=row.name;filterName.appendChild(opt)}
+      const mon = monthFromIso(row.date);
+      if(!months.includes(mon)){months.push(mon);const opt=document.createElement('option');opt.value=mon;opt.textContent=mon;filterMonth.appendChild(opt)}
+      applyFilters();
+      modal.classList.remove('open');
+      document.getElementById('form').reset();
+    });
+
+    // Export CSV
+    document.getElementById('btnExportCSV').addEventListener('click',()=>{
+      const rows = Array.from(document.querySelectorAll('#tbl tbody tr')).map(tr=>Array.from(tr.children).map(td=>td.textContent));
+      if(rows.length===0){alert('Nenhum registro para exportar');return}
+      const header = ['Data','Horário','Funcionário','Material','Quantidade','Observação'];
+      const csv = [header.join(',')].concat(rows.map(r=>r.map(cell=>`"${cell.replace(/"/g,'""')}"`).join(','))).join('\n');
+      const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');a.href=url;a.download='saida_materiais.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+
+    // Export XLSX using SheetJS
+    document.getElementById('btnExportXLSX').addEventListener('click',()=>{
+      const header = ['Data','Horário','Funcionário','Material','Quantidade','Observação'];
+      const rows = Array.from(document.querySelectorAll('#tbl tbody tr')).map(tr=>Array.from(tr.children).map(td=>td.textContent));
+      if(rows.length===0){alert('Nenhum registro para exportar');return}
+      const aoa = [header].concat(rows.map(r=>r.map(c=>c)));
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,'SaidaMateriais');
+      XLSX.writeFile(wb,'Saida_Materiais_Export.xlsx');
+    });
+
+    // Print support
+    document.addEventListener('keydown',e=>{if(e.ctrlKey && e.key.toLowerCase()==='p'){window.print();}});
+
+  </script>
+</body>
+</html>
